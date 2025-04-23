@@ -17,7 +17,7 @@
     "symfony/security-bundle": "^6.4",
     "symfony/property-access": "^6.4",
     "symfony/yaml": "^6.4 || ^7.1",
-    "symfony/service-contracts": "^2.5 || ^3",
+    "symfony/service-contracts": "^3",
     "tourze/doctrine-helper": "0.0.*",
     "tourze/doctrine-async-bundle": "^0.0.6",
     "tourze/doctrine-entity-checker-bundle": "0.0.*",
