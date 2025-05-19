@@ -11,9 +11,9 @@ use Doctrine\ORM\Event\PostUpdateEventArgs;
 use Doctrine\ORM\Event\PreRemoveEventArgs;
 use Doctrine\ORM\Events;
 use Psr\Log\LoggerInterface;
-use Psr\SimpleCache\CacheInterface;
 use RequestIdBundle\Service\RequestIdStorage;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\Cache\Adapter\AdapterInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -46,7 +46,7 @@ class EntityTrackListener implements ResetInterface
         #[Autowire(service: 'doctrine-track.property-accessor')] private readonly PropertyAccessor $propertyAccessor,
         private readonly LoggerInterface $logger,
         private readonly Security $security,
-        private readonly CacheInterface $cache,
+        #[Autowire(service: 'cache.app')]  private readonly AdapterInterface $cache,
         private readonly RequestIdStorage $requestIdStorage,
     ) {
     }
@@ -155,7 +155,8 @@ class EntityTrackListener implements ResetInterface
             $id,
         ]);
         $checkHash = md5($checkKey . serialize($changedValues));
-        if ($this->cache->get($checkKey) === $checkHash) {
+        $cacheItem = $this->cache->getItem($checkHash);
+        if ($cacheItem->isHit() && $cacheItem->get() === $checkHash) {
             return;
         }
 
@@ -169,7 +170,10 @@ class EntityTrackListener implements ResetInterface
         $log->setCreatedFromIp($this->requestStack->getMainRequest() ? $this->requestStack->getMainRequest()->getClientIp() : '');
         $log->setRequestId(substr($this->requestIdStorage->getRequestId(), 0, 64));
         $this->doctrineService->asyncInsert($log);
+
         // 一天内不会重复处理
-        $this->cache->set($checkKey, $checkHash, 60 * 60 * 24);
+        $cacheItem->set($checkHash);
+        $cacheItem->expiresAfter(60 * 60 * 24);
+        $this->cache->save($cacheItem);
     }
 }
