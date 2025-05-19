@@ -15,6 +15,7 @@ use Psr\SimpleCache\CacheInterface;
 use RequestIdBundle\Service\RequestIdStorage;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Symfony\Contracts\Service\ResetInterface;
@@ -42,7 +43,7 @@ class EntityTrackListener implements ResetInterface
     public function __construct(
         private readonly DoctrineService $doctrineService,
         private readonly RequestStack $requestStack,
-        private readonly PropertyAccessor $propertyAccessor,
+        #[Autowire(service: 'doctrine-track.property-accessor')] private readonly PropertyAccessor $propertyAccessor,
         private readonly LoggerInterface $logger,
         private readonly Security $security,
         private readonly CacheInterface $cache,

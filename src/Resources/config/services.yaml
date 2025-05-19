@@ -6,3 +6,7 @@ services:
 
   Tourze\DoctrineTrackBundle\EventSubscriber\:
     resource: '../../EventSubscriber/'
+
+  doctrine-track.property-accessor:
+    class: Symfony\Component\PropertyAccess\PropertyAccessor
+    factory: [ 'Symfony\Component\PropertyAccess\PropertyAccess', 'createPropertyAccessor' ]
