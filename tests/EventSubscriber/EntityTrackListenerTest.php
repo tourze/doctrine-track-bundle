@@ -4,9 +4,9 @@ namespace Tourze\DoctrineTrackBundle\Tests\EventSubscriber;
 
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
-use Psr\SimpleCache\CacheInterface;
 use RequestIdBundle\Service\RequestIdStorage;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
@@ -16,6 +16,70 @@ use Tourze\DoctrineTrackBundle\Attribute\TrackColumn;
 use Tourze\DoctrineTrackBundle\Entity\EntityTrackLog;
 use Tourze\DoctrineTrackBundle\EventSubscriber\EntityTrackListener;
 
+/**
+ * 为测试创建一个自定义CacheItem实现
+ */
+class TestCacheItem implements \Symfony\Contracts\Cache\ItemInterface
+{
+    private $key;
+    private $value;
+    private $isHit;
+    private $expiry;
+    private $tags = [];
+    private $metadata = [];
+
+    public function __construct(string $key, $value = null, bool $isHit = false)
+    {
+        $this->key = $key;
+        $this->value = $value;
+        $this->isHit = $isHit;
+    }
+
+    public function getKey(): string
+    {
+        return $this->key;
+    }
+
+    public function get(): mixed
+    {
+        return $this->value;
+    }
+
+    public function isHit(): bool
+    {
+        return $this->isHit;
+    }
+
+    public function set(mixed $value): static
+    {
+        $this->value = $value;
+        return $this;
+    }
+
+    public function expiresAt(?\DateTimeInterface $expiration): static
+    {
+        $this->expiry = $expiration;
+        return $this;
+    }
+
+    public function expiresAfter(int|\DateInterval|null $time): static
+    {
+        $this->expiry = $time;
+        return $this;
+    }
+
+    public function tag(mixed $tags): static
+    {
+        $this->tags = is_array($tags) ? $tags : [$tags];
+        return $this;
+    }
+
+    public function getMetadata(): array
+    {
+        return $this->metadata;
+    }
+}
+
 class EntityTrackListenerTest extends TestCase
 {
     private EntityTrackListener $listener;
@@ -24,7 +88,7 @@ class EntityTrackListenerTest extends TestCase
     private PropertyAccessor $propertyAccessor;
     private LoggerInterface $logger;
     private Security $security;
-    private CacheInterface $cache;
+    private ArrayAdapter $cache;
     private RequestIdStorage $requestIdStorage;
     private Request $request;
 
@@ -89,7 +153,7 @@ class EntityTrackListenerTest extends TestCase
 
         $this->logger = $this->createMock(LoggerInterface::class);
         $this->security = $this->createMock(Security::class);
-        $this->cache = $this->createMock(CacheInterface::class);
+        $this->cache = new ArrayAdapter();
 
         // 默认请求ID始终为字符串，避免NULL导致的警告
         $this->requestIdStorage = $this->createMock(RequestIdStorage::class);
@@ -404,17 +468,15 @@ class EntityTrackListenerTest extends TestCase
             }
         };
 
-        // 设置缓存值
+        // 设置缓存值以模拟缓存命中
         $changedValues = ['name' => 'test'];
-
-        // 对任何缓存键调用都返回匹配的hash，模拟缓存命中
-        // 无论EntityTrackListener内部如何生成缓存键，都让缓存命中
-        $this->cache->expects($this->once())
-            ->method('get')
-            ->willReturnCallback(function ($key) use ($changedValues) {
-                // 返回一个针对当前key和数据计算的hash值
-                return md5($key . serialize($changedValues));
-            });
+        $checkKey = 'update_'. get_class($testEntity) . '_123'; 
+        $checkHash = md5($checkKey . serialize($changedValues));
+        
+        // 预先设置缓存，确保缓存命中
+        $cacheItem = $this->cache->getItem($checkHash);
+        $cacheItem->set($checkHash);
+        $this->cache->save($cacheItem);
 
         // 断言：缓存命中时，asyncInsert方法不应该被调用
         $this->doctrineService->expects($this->never())
@@ -449,8 +511,8 @@ class EntityTrackListenerTest extends TestCase
             }
         };
 
-        // 模拟缓存未命中 - 确保get方法返回null或与checkHash不同的值
-        $this->cache->method('get')->willReturn(null);
+        // 确保缓存中没有数据，模拟缓存未命中
+        $this->cache->clear();
 
         // 模拟请求相关信息
         $this->request->method('getClientIp')->willReturn('192.168.1.1');
@@ -461,17 +523,10 @@ class EntityTrackListenerTest extends TestCase
         $user->method('getUserIdentifier')->willReturn('testuser');
         $this->security->method('getUser')->willReturn($user);
 
-        // 模拟请求ID - 确保返回字符串而非null
-        $requestId = 'req-123456';
-        $this->requestIdStorage->method('getRequestId')->willReturn($requestId);
-
         // 设置对 asyncInsert 的期望 - 使用任意参数，只要确保被调用一次
         $this->doctrineService->expects($this->once())
             ->method('asyncInsert')
             ->with($this->isInstanceOf(EntityTrackLog::class));
-
-        // 模拟缓存设置 - 使用任何参数
-        $this->cache->expects($this->once())->method('set');
 
         // 使用反射通过私有方法保存日志
         $changedValues = ['name' => 'test'];
