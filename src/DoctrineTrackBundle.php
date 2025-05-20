@@ -11,6 +11,7 @@ class DoctrineTrackBundle extends Bundle implements BundleDependencyInterface
     {
         return [
             \RequestIdBundle\RequestIdBundle::class => ['all' => true],
+            \Tourze\DoctrineAsyncBundle\DoctrineAsyncBundle::class => ['all' => true],
         ];
     }
 }
