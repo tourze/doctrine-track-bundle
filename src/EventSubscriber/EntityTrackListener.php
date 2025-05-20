@@ -46,7 +46,7 @@ class EntityTrackListener implements ResetInterface
         #[Autowire(service: 'doctrine-track.property-accessor')] private readonly PropertyAccessor $propertyAccessor,
         private readonly LoggerInterface $logger,
         private readonly Security $security,
-        #[Autowire(service: 'cache.app')]  private readonly AdapterInterface $cache,
+        #[Autowire(service: 'cache.app')] private readonly AdapterInterface $cache,
         private readonly RequestIdStorage $requestIdStorage,
     ) {
     }
