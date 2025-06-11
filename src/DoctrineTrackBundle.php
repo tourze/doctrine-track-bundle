@@ -2,16 +2,22 @@
 
 namespace Tourze\DoctrineTrackBundle;
 
+use RequestIdBundle\RequestIdBundle;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 use Tourze\BundleDependency\BundleDependencyInterface;
+use Tourze\DoctrineAsyncBundle\DoctrineAsyncBundle;
+use Tourze\DoctrineIndexedBundle\DoctrineIndexedBundle;
+use Tourze\DoctrineTimestampBundle\DoctrineTimestampBundle;
 
 class DoctrineTrackBundle extends Bundle implements BundleDependencyInterface
 {
     public static function getBundleDependencies(): array
     {
         return [
-            \RequestIdBundle\RequestIdBundle::class => ['all' => true],
-            \Tourze\DoctrineAsyncBundle\DoctrineAsyncBundle::class => ['all' => true],
+            RequestIdBundle::class => ['all' => true],
+            DoctrineAsyncBundle::class => ['all' => true],
+            DoctrineIndexedBundle::class => ['all' => true],
+            DoctrineTimestampBundle::class => ['all' => true],
         ];
     }
 }
