@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Symfony\Component\Security\Core\User\UserInterface;
-use Tourze\DoctrineAsyncBundle\Service\DoctrineService;
+use Tourze\DoctrineAsyncInsertBundle\Service\AsyncInsertService;
 use Tourze\DoctrineTrackBundle\Attribute\TrackColumn;
 use Tourze\DoctrineTrackBundle\Entity\EntityTrackLog;
 use Tourze\DoctrineTrackBundle\EventSubscriber\EntityTrackListener;
@@ -83,7 +83,7 @@ class TestCacheItem implements \Symfony\Contracts\Cache\ItemInterface
 class EntityTrackListenerTest extends TestCase
 {
     private EntityTrackListener $listener;
-    private DoctrineService $doctrineService;
+    private AsyncInsertService $doctrineService;
     private RequestStack $requestStack;
     private PropertyAccessor $propertyAccessor;
     private LoggerInterface $logger;
@@ -98,7 +98,7 @@ class EntityTrackListenerTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->doctrineService = $this->createMock(DoctrineService::class);
+        $this->doctrineService = $this->createMock(AsyncInsertService::class);
         $this->requestStack = $this->createMock(RequestStack::class);
 
         // 使用Mock替代PropertyAccessor，避免对额外依赖的需要

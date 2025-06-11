@@ -19,7 +19,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Symfony\Contracts\Service\ResetInterface;
-use Tourze\DoctrineAsyncBundle\Service\DoctrineService;
+use Tourze\DoctrineAsyncInsertBundle\Service\AsyncInsertService;
 use Tourze\DoctrineHelper\CacheHelper;
 use Tourze\DoctrineHelper\ReflectionHelper;
 use Tourze\DoctrineTrackBundle\Attribute\TrackColumn;
@@ -41,7 +41,7 @@ class EntityTrackListener implements ResetInterface
     private array $idMap = [];
 
     public function __construct(
-        private readonly DoctrineService $doctrineService,
+        private readonly AsyncInsertService $doctrineService,
         private readonly RequestStack $requestStack,
         #[Autowire(service: 'doctrine-track.property-accessor')] private readonly PropertyAccessor $propertyAccessor,
         private readonly LoggerInterface $logger,
