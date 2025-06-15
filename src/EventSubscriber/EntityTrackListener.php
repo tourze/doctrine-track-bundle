@@ -168,7 +168,8 @@ class EntityTrackListener implements ResetInterface
         $log->setCreateTime(Carbon::now());
         $log->setCreatedBy($this->security->getUser()?->getUserIdentifier());
         $log->setCreatedFromIp($this->requestStack->getMainRequest() ? $this->requestStack->getMainRequest()->getClientIp() : '');
-        $log->setRequestId(substr($this->requestIdStorage->getRequestId(), 0, 64));
+        $requestId = $this->requestIdStorage->getRequestId();
+        $log->setRequestId($requestId ? substr($requestId, 0, 64) : '');
         $this->doctrineService->asyncInsert($log);
 
         // 一天内不会重复处理
