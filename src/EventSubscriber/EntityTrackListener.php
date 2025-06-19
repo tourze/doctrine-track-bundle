@@ -165,7 +165,7 @@ class EntityTrackListener implements ResetInterface
         $log->setObjectId($id);
         $log->setAction($action);
         $log->setData($changedValues);
-        $log->setCreateTime(Carbon::now());
+        $log->setCreateTime(Carbon::now()->toDateTimeImmutable());
         $log->setCreatedBy($this->security->getUser()?->getUserIdentifier());
         $log->setCreatedFromIp($this->requestStack->getMainRequest() ? $this->requestStack->getMainRequest()->getClientIp() : '');
         $requestId = $this->requestIdStorage->getRequestId();
