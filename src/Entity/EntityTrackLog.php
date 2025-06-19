@@ -5,7 +5,7 @@ namespace Tourze\DoctrineTrackBundle\Entity;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Tourze\DoctrineIndexedBundle\Attribute\IndexColumn;
-use Tourze\DoctrineTimestampBundle\Attribute\CreateTimeColumn;
+use Tourze\DoctrineTimestampBundle\Traits\CreateTimeAware;
 use Tourze\DoctrineUserBundle\Attribute\CreatedByColumn;
 use Tourze\ScheduleEntityCleanBundle\Attribute\AsScheduleClean;
 
@@ -14,6 +14,8 @@ use Tourze\ScheduleEntityCleanBundle\Attribute\AsScheduleClean;
 #[ORM\Table(name: 'entity_track_log', options: ['comment' => '数据变更日志'])]
 class EntityTrackLog
 {
+    use CreateTimeAware;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: Types::INTEGER, options: ['comment' => 'ID'])]
@@ -42,23 +44,6 @@ class EntityTrackLog
 
     #[ORM\Column(length: 64, nullable: true, options: ['comment' => '请求ID'])]
     private ?string $requestId = null;
-
-    #[IndexColumn]
-    #[CreateTimeColumn]
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true, options: ['comment' => '创建时间'])]
-    private ?\DateTimeInterface $createTime = null;
-
-    public function setCreateTime(?\DateTimeInterface $createdAt): self
-    {
-        $this->createTime = $createdAt;
-
-        return $this;
-    }
-
-    public function getCreateTime(): ?\DateTimeInterface
-    {
-        return $this->createTime;
-    }
 
     public function getId(): ?int
     {
