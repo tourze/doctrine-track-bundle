@@ -2,7 +2,6 @@
 
 namespace Tourze\DoctrineTrackBundle\EventSubscriber;
 
-use Carbon\Carbon;
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\Common\Util\ClassUtils;
 use Doctrine\ORM\Event\PostPersistEventArgs;
@@ -165,7 +164,7 @@ class EntityTrackListener implements ResetInterface
         $log->setObjectId($id);
         $log->setAction($action);
         $log->setData($changedValues);
-        $log->setCreateTime(Carbon::now()->toDateTimeImmutable());
+        $log->setCreateTime(new \DateTimeImmutable());
         $log->setCreatedBy($this->security->getUser()?->getUserIdentifier());
         $log->setCreatedFromIp($this->requestStack->getMainRequest() ? $this->requestStack->getMainRequest()->getClientIp() : '');
         $requestId = $this->requestIdStorage->getRequestId();

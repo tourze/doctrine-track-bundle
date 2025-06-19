@@ -12,7 +12,7 @@ use Tourze\ScheduleEntityCleanBundle\Attribute\AsScheduleClean;
 #[AsScheduleClean(expression: '22 5 * * *', defaultKeepDay: 180, keepDayEnv: 'ENTITY_TRACK_LOG_PERSIST_DAY_NUM')]
 #[ORM\Entity]
 #[ORM\Table(name: 'entity_track_log', options: ['comment' => '数据变更日志'])]
-class EntityTrackLog
+class EntityTrackLog implements \Stringable
 {
     use CreateTimeAware;
 
@@ -22,17 +22,17 @@ class EntityTrackLog
     private ?int $id = 0;
 
     #[IndexColumn]
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, options: ['comment' => '对象类名'])]
     private ?string $objectClass = null;
 
     #[IndexColumn]
-    #[ORM\Column(length: 40)]
+    #[ORM\Column(length: 40, options: ['comment' => '对象ID'])]
     private ?string $objectId = null;
 
-    #[ORM\Column(length: 20)]
+    #[ORM\Column(length: 20, options: ['comment' => '操作类型'])]
     private ?string $action = null;
 
-    #[ORM\Column]
+    #[ORM\Column(type: Types::JSON, options: ['comment' => '变更数据'])]
     private array $data = [];
 
     #[CreatedByColumn]
@@ -137,5 +137,10 @@ class EntityTrackLog
         $this->requestId = $requestId;
 
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        return sprintf('%s#%s [%s]', $this->objectClass, $this->objectId, $this->action);
     }
 }
