@@ -24,8 +24,6 @@ class TestCacheItem implements \Symfony\Contracts\Cache\ItemInterface
     private $key;
     private $value;
     private $isHit;
-    private $expiry;
-    private $tags = [];
     private $metadata = [];
 
     public function __construct(string $key, $value = null, bool $isHit = false)
@@ -58,19 +56,16 @@ class TestCacheItem implements \Symfony\Contracts\Cache\ItemInterface
 
     public function expiresAt(?\DateTimeInterface $expiration): static
     {
-        $this->expiry = $expiration;
         return $this;
     }
 
     public function expiresAfter(int|\DateInterval|null $time): static
     {
-        $this->expiry = $time;
         return $this;
     }
 
     public function tag(mixed $tags): static
     {
-        $this->tags = is_array($tags) ? $tags : [$tags];
         return $this;
     }
 
@@ -94,7 +89,6 @@ class EntityTrackListenerTest extends TestCase
 
     // 用于测试的全局变量，保存当前测试上下文
     private string $currentTestMethod = '';
-    private object $currentTestEntity;
 
     protected function setUp(): void
     {
@@ -107,8 +101,6 @@ class EntityTrackListenerTest extends TestCase
         // 通用的PropertyAccessor行为
         $this->propertyAccessor->method('getValue')
             ->willReturnCallback(function ($object, $property) {
-                $this->currentTestEntity = $object;
-
                 // 根据测试方法名提供不同的行为
                 switch ($this->currentTestMethod) {
                     case 'testEntityTrackListener_getChangedValues_withException':
@@ -347,7 +339,7 @@ class EntityTrackListenerTest extends TestCase
         // 创建一个会在PropertyAccessor::getValue中抛出异常的实体
         $testEntity = new class() {
             #[TrackColumn]
-            private $problematicField;
+            public $problematicField = 'test';
 
             private $id = 123;
 
@@ -355,8 +347,6 @@ class EntityTrackListenerTest extends TestCase
             {
                 return $this->id;
             }
-
-            // 没有getter，访问时会抛出异常
         };
 
         // 设置logger期望
@@ -376,6 +366,11 @@ class EntityTrackListenerTest extends TestCase
         $testEntity = new class() {
             #[TrackColumn]
             private $name = 'test';
+
+            public function getName()
+            {
+                return $this->name;
+            }
 
             // 没有getId方法
         };

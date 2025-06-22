@@ -8,7 +8,6 @@
     "doctrine/dbal": "^4.0",
     "doctrine/doctrine-bundle": "^2.13",
     "doctrine/orm": "^3.0",
-    "nesbot/carbon": "^2.72 || ^3",
     "psr/log": "^3|^2|^1",
     "symfony/cache": "^6.4",
     "symfony/cache-contracts": "^3",

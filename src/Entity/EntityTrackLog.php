@@ -6,7 +6,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Tourze\DoctrineIndexedBundle\Attribute\IndexColumn;
 use Tourze\DoctrineTimestampBundle\Traits\CreateTimeAware;
-use Tourze\DoctrineUserBundle\Attribute\CreatedByColumn;
+use Tourze\DoctrineUserBundle\Traits\CreatedByAware;
 use Tourze\ScheduleEntityCleanBundle\Attribute\AsScheduleClean;
 
 #[AsScheduleClean(expression: '22 5 * * *', defaultKeepDay: 180, keepDayEnv: 'ENTITY_TRACK_LOG_PERSIST_DAY_NUM')]
@@ -15,6 +15,7 @@ use Tourze\ScheduleEntityCleanBundle\Attribute\AsScheduleClean;
 class EntityTrackLog implements \Stringable
 {
     use CreateTimeAware;
+    use CreatedByAware;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -34,10 +35,6 @@ class EntityTrackLog implements \Stringable
 
     #[ORM\Column(type: Types::JSON, options: ['comment' => '变更数据'])]
     private array $data = [];
-
-    #[CreatedByColumn]
-    #[ORM\Column(nullable: true, options: ['comment' => '创建人'])]
-    private ?string $createdBy = null;
 
     #[ORM\Column(length: 45, nullable: true, options: ['comment' => '创建时IP'])]
     private ?string $createdFromIp = null;
@@ -101,18 +98,6 @@ class EntityTrackLog implements \Stringable
         $this->data = $data;
 
         return $this;
-    }
-
-    public function setCreatedBy(?string $createdBy): static
-    {
-        $this->createdBy = $createdBy;
-
-        return $this;
-    }
-
-    public function getCreatedBy(): ?string
-    {
-        return $this->createdBy;
     }
 
     public function getCreatedFromIp(): ?string

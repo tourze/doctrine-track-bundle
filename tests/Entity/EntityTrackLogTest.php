@@ -2,7 +2,6 @@
 
 namespace Tourze\DoctrineTrackBundle\Tests\Entity;
 
-use Carbon\Carbon;
 use PHPUnit\Framework\TestCase;
 use Tourze\DoctrineTrackBundle\Entity\EntityTrackLog;
 
@@ -109,7 +108,7 @@ class EntityTrackLogTest extends TestCase
     public function testEntityTrackLog_createTimeGetterSetter()
     {
         // 测试 createTime 的 getter 和 setter
-        $now = Carbon::now();
+        $now = new \DateTimeImmutable();
         $this->entityTrackLog->setCreateTime($now);
         $this->assertEquals($now, $this->entityTrackLog->getCreateTime());
 
@@ -158,7 +157,7 @@ class EntityTrackLogTest extends TestCase
 
         $this->assertInstanceOf(
             EntityTrackLog::class,
-            $this->entityTrackLog->setCreateTime(Carbon::now())
+            $this->entityTrackLog->setCreateTime(new \DateTimeImmutable())
         );
     }
 }

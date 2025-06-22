@@ -132,10 +132,10 @@ class EntityTrackListener implements ResetInterface
     private function saveLog(object $entity, array $changedValues, string $action): void
     {
         $id = $this->propertyAccessor->getValue($entity, 'id');
-        if (!$id) {
+        if ($id === null || $id === '') {
             $id = $this->idMap[spl_object_hash($entity)] ?? null;
         }
-        if (!$id) {
+        if ($id === null || $id === '') {
             $this->logger->error('记录TrackLog时发生未知错误', [
                 'entity' => $entity,
                 'values' => $changedValues,
@@ -166,9 +166,10 @@ class EntityTrackListener implements ResetInterface
         $log->setData($changedValues);
         $log->setCreateTime(new \DateTimeImmutable());
         $log->setCreatedBy($this->security->getUser()?->getUserIdentifier());
-        $log->setCreatedFromIp($this->requestStack->getMainRequest() ? $this->requestStack->getMainRequest()->getClientIp() : '');
+        $mainRequest = $this->requestStack->getMainRequest();
+        $log->setCreatedFromIp($mainRequest !== null ? $mainRequest->getClientIp() : '');
         $requestId = $this->requestIdStorage->getRequestId();
-        $log->setRequestId($requestId ? substr($requestId, 0, 64) : '');
+        $log->setRequestId($requestId !== null ? substr($requestId, 0, 64) : '');
         $this->doctrineService->asyncInsert($log);
 
         // 一天内不会重复处理
