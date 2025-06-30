@@ -31,7 +31,7 @@ use Tourze\DoctrineTrackBundle\Entity\EntityTrackLog;
 #[AsDoctrineListener(event: Events::postRemove)]
 #[AsDoctrineListener(event: Events::postPersist)]
 #[AsDoctrineListener(event: Events::postUpdate)]
-#[AutoconfigureTag('as-coroutine')]
+#[AutoconfigureTag(name: 'as-coroutine')]
 class EntityTrackListener implements ResetInterface
 {
     /**

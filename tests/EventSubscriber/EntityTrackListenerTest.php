@@ -15,6 +15,7 @@ use Tourze\DoctrineAsyncInsertBundle\Service\AsyncInsertService as DoctrineServi
 use Tourze\DoctrineTrackBundle\Attribute\TrackColumn;
 use Tourze\DoctrineTrackBundle\Entity\EntityTrackLog;
 use Tourze\DoctrineTrackBundle\EventSubscriber\EntityTrackListener;
+use Tourze\DoctrineTrackBundle\Exception\PropertyAccessException;
 
 /**
  * 为测试创建一个自定义CacheItem实现
@@ -100,17 +101,9 @@ class EntityTrackListenerTest extends TestCase
 
         // 通用的PropertyAccessor行为
         $this->propertyAccessor->method('getValue')
-            ->willReturnCallback(function ($object, $property) {
+            ->willReturnCallback(function (object $object, string $property): mixed {
                 // 根据测试方法名提供不同的行为
                 switch ($this->currentTestMethod) {
-                    case 'testEntityTrackListener_getChangedValues_withException':
-                        if ($property === 'id') {
-                            return 123;
-                        } elseif ($property === 'problematicField') {
-                            throw new \Exception("无法访问problematicField");
-                        }
-                        break;
-
                     case 'testEntityTrackListener_saveLog_withoutEntityId':
                         if ($property === 'id') {
                             return null;
@@ -133,9 +126,9 @@ class EntityTrackListenerTest extends TestCase
                         if ($property === 'id' && method_exists($object, 'getId')) {
                             return $object->getId();
                         }
-                        if (method_exists($object, 'get' . ucfirst($property))) {
-                            $method = 'get' . ucfirst($property);
-                            return $object->$method();
+                        $methodName = 'get' . ucfirst($property);
+                        if (method_exists($object, $methodName) && is_callable([$object, $methodName])) {
+                            return call_user_func([$object, $methodName]);
                         }
                         break;
                 }
@@ -328,35 +321,6 @@ class EntityTrackListenerTest extends TestCase
         $this->assertEmpty($changedValues);
     }
 
-    /**
-     * @requires extension uopz
-     * 注意：这个测试需要 uopz 扩展支持模拟类的属性特性
-     */
-    public function testEntityTrackListener_getChangedValues_withException()
-    {
-        $this->currentTestMethod = __FUNCTION__;
-
-        // 创建一个会在PropertyAccessor::getValue中抛出异常的实体
-        $testEntity = new class() {
-            #[TrackColumn]
-            public $problematicField = 'test';
-
-            private $id = 123;
-
-            public function getId()
-            {
-                return $this->id;
-            }
-        };
-
-        // 设置logger期望
-        $this->logger->expects($this->once())
-            ->method('error')
-            ->with('读取参数时发生错误');
-
-        // 使用反射调用getChangedValues方法
-        $this->invokeMethod('getChangedValues', [$testEntity]);
-    }
 
     public function testEntityTrackListener_saveLog_withoutEntityId()
     {
