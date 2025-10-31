@@ -22,11 +22,11 @@
     "symfony/service-contracts": "^3.6",
     "symfony/yaml": "^7.3",
     "tourze/bundle-dependency": "1.*",
-    "tourze/doctrine-async-insert-bundle": "0.1.*",
+    "tourze/doctrine-async-insert-bundle": "1.0.*",
     "tourze/doctrine-helper": "0.0.*",
     "tourze/doctrine-indexed-bundle": "1.0.*",
-    "tourze/doctrine-ip-bundle": "0.0.*",
-    "tourze/doctrine-timestamp-bundle": "0.0.*",
+    "tourze/doctrine-ip-bundle": "1.0.*",
+    "tourze/doctrine-timestamp-bundle": "1.0.*",
     "tourze/doctrine-user-bundle": "0.0.*",
     "tourze/request-id-bundle": "0.0.*",
     "tourze/symfony-dependency-service-loader": "1.*",
@@ -41,7 +41,7 @@
     "tourze/biz-user-bundle": "0.0.*",
     "tourze/phpunit-base": "1.*",
     "tourze/phpunit-doctrine-entity": "1.*",
-    "tourze/phpunit-symfony-kernel-test": "1.*",
+    "tourze/phpunit-symfony-kernel-test": "1.0.*",
     "tourze/phpunit-symfony-unit-test": "1.*"
   },
   "autoload": {
