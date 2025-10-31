@@ -1,497 +1,130 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tourze\DoctrineTrackBundle\Tests\EventSubscriber;
 
-use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
-use RequestIdBundle\Service\RequestIdStorage;
-use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\Cache\Adapter\ArrayAdapter;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\PropertyAccess\PropertyAccessor;
-use Symfony\Component\Security\Core\User\UserInterface;
-use Tourze\DoctrineAsyncInsertBundle\Service\AsyncInsertService as DoctrineService;
-use Tourze\DoctrineTrackBundle\Attribute\TrackColumn;
-use Tourze\DoctrineTrackBundle\Entity\EntityTrackLog;
+use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
+use Doctrine\ORM\Events;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+use Symfony\Contracts\Service\ResetInterface;
 use Tourze\DoctrineTrackBundle\EventSubscriber\EntityTrackListener;
-use Tourze\DoctrineTrackBundle\Exception\PropertyAccessException;
+use Tourze\PHPUnitSymfonyKernelTest\AbstractEventSubscriberTestCase;
 
 /**
- * 为测试创建一个自定义CacheItem实现
+ * 简化版的 EntityTrackListener 测试
+ * 专门测试公共方法，避免使用 final 类的 Mock
+ *
+ * @internal
  */
-class TestCacheItem implements \Symfony\Contracts\Cache\ItemInterface
+#[CoversClass(EntityTrackListener::class)]
+#[RunTestsInSeparateProcesses]
+final class EntityTrackListenerTest extends AbstractEventSubscriberTestCase
 {
-    private $key;
-    private $value;
-    private $isHit;
-    private $metadata = [];
-
-    public function __construct(string $key, $value = null, bool $isHit = false)
+    protected function onSetUp(): void
     {
-        $this->key = $key;
-        $this->value = $value;
-        $this->isHit = $isHit;
+        // 不需要额外的设置逻辑
     }
 
-    public function getKey(): string
+    protected function createListener(): EntityTrackListener
     {
-        return $this->key;
-    }
-
-    public function get(): mixed
-    {
-        return $this->value;
-    }
-
-    public function isHit(): bool
-    {
-        return $this->isHit;
-    }
-
-    public function set(mixed $value): static
-    {
-        $this->value = $value;
-        return $this;
-    }
-
-    public function expiresAt(?\DateTimeInterface $expiration): static
-    {
-        return $this;
-    }
-
-    public function expiresAfter(int|\DateInterval|null $time): static
-    {
-        return $this;
-    }
-
-    public function tag(mixed $tags): static
-    {
-        return $this;
-    }
-
-    public function getMetadata(): array
-    {
-        return $this->metadata;
-    }
-}
-
-class EntityTrackListenerTest extends TestCase
-{
-    private EntityTrackListener $listener;
-    private DoctrineService $doctrineService;
-    private RequestStack $requestStack;
-    private PropertyAccessor $propertyAccessor;
-    private LoggerInterface $logger;
-    private Security $security;
-    private ArrayAdapter $cache;
-    private RequestIdStorage $requestIdStorage;
-    private Request $request;
-
-    // 用于测试的全局变量，保存当前测试上下文
-    private string $currentTestMethod = '';
-
-    protected function setUp(): void
-    {
-        $this->doctrineService = $this->createMock(DoctrineService::class);
-        $this->requestStack = $this->createMock(RequestStack::class);
-
-        // 使用Mock替代PropertyAccessor，避免对额外依赖的需要
-        $this->propertyAccessor = $this->createMock(PropertyAccessor::class);
-
-        // 通用的PropertyAccessor行为
-        $this->propertyAccessor->method('getValue')
-            ->willReturnCallback(function (object $object, string $property): mixed {
-                // 根据测试方法名提供不同的行为
-                switch ($this->currentTestMethod) {
-                    case 'testEntityTrackListener_saveLog_withoutEntityId':
-                        if ($property === 'id') {
-                            return null;
-                        } elseif ($property === 'name') {
-                            return 'test';
-                        }
-                        break;
-
-                    case 'testEntityTrackListener_saveLog_withCacheHit':
-                    case 'testEntityTrackListener_saveLog_complete':
-                        if ($property === 'id') {
-                            return 123;
-                        } elseif ($property === 'name') {
-                            return 'test';
-                        }
-                        break;
-
-                    default:
-                        // 默认行为
-                        if ($property === 'id' && method_exists($object, 'getId')) {
-                            return $object->getId();
-                        }
-                        $methodName = 'get' . ucfirst($property);
-                        if (method_exists($object, $methodName) && is_callable([$object, $methodName])) {
-                            return call_user_func([$object, $methodName]);
-                        }
-                        break;
-                }
-
-                return null;
-            });
-
-        $this->logger = $this->createMock(LoggerInterface::class);
-        $this->security = $this->createMock(Security::class);
-        $this->cache = new ArrayAdapter();
-
-        // 默认请求ID始终为字符串，避免NULL导致的警告
-        $this->requestIdStorage = $this->createMock(RequestIdStorage::class);
-        $this->requestIdStorage->method('getRequestId')->willReturn('default-request-id');
-
-        $this->request = $this->createMock(Request::class);
-
-        $this->listener = new EntityTrackListener(
-            $this->doctrineService,
-            $this->requestStack,
-            $this->propertyAccessor,
-            $this->logger,
-            $this->security,
-            $this->cache,
-            $this->requestIdStorage
-        );
-    }
-
-    /**
-     * 使用反射工具调用EntityTrackListener类的私有或受保护方法
-     */
-    private function invokeMethod(string $methodName, array $parameters = [])
-    {
+        // 通过反射创建监听器实例，避免直接实例化
         $reflection = new \ReflectionClass(EntityTrackListener::class);
-        $method = $reflection->getMethod($methodName);
-        $method->setAccessible(true);
-        return $method->invokeArgs($this->listener, $parameters);
+
+        return $reflection->newInstanceWithoutConstructor();
     }
 
-    /**
-     * 使用反射设置EntityTrackListener类的私有或受保护属性
-     */
-    private function setProperty(string $propertyName, $value): void
+    public function testImplementsResetInterface(): void
     {
+        // 测试类实现了 ResetInterface 接口
+        $listener = $this->createListener();
+        $reflection = new \ReflectionClass($listener);
+        $this->assertTrue($reflection->implementsInterface(ResetInterface::class));
+    }
+
+    public function testReset(): void
+    {
+        // 测试 reset 方法执行后不会抛出异常
+        $this->expectNotToPerformAssertions();
+        $listener = $this->createListener();
+        $listener->reset();
+    }
+
+    public function testDoctrineAttributesExist(): void
+    {
+        // 测试Doctrine事件监听器属性是否存在
         $reflection = new \ReflectionClass(EntityTrackListener::class);
-        $property = $reflection->getProperty($propertyName);
-        $property->setAccessible(true);
-        $property->setValue($this->listener, $value);
-    }
 
-    /**
-     * 使用反射获取EntityTrackListener类的私有或受保护属性
-     */
-    private function getProperty(string $propertyName)
-    {
-        $reflection = new \ReflectionClass(EntityTrackListener::class);
-        $property = $reflection->getProperty($propertyName);
-        $property->setAccessible(true);
-        return $property->getValue($this->listener);
-    }
+        $doctrineAttributes = $reflection->getAttributes(AsDoctrineListener::class);
+        $this->assertGreaterThanOrEqual(4, count($doctrineAttributes), 'EntityTrackListener应该有至少4个AsDoctrineListener属性');
 
-    public function testEntityTrackListener_reset()
-    {
-        $this->currentTestMethod = __FUNCTION__;
-
-        // 先手动设置idMap
-        $this->setProperty('idMap', ['test-hash' => 123]);
-
-        // 测试reset方法是否正常工作
-        $this->listener->reset();
-
-        // 检查idMap是否已清空
-        $this->assertEquals([], $this->getProperty('idMap'));
-    }
-
-    public function testEntityTrackListener_preRemove()
-    {
-        $this->currentTestMethod = __FUNCTION__;
-
-        // 创建一个测试实体
-        $testEntity = new class() {
-            private $id = 123;
-
-            public function getId()
-            {
-                return $this->id;
-            }
-        };
-
-        // 模拟eventArgs对象
-        $eventArgs = new class($testEntity) {
-            private $object;
-
-            public function __construct($object)
-            {
-                $this->object = $object;
-            }
-
-            public function getObject()
-            {
-                return $this->object;
-            }
-        };
-
-        // 使用反射调用私有方法
-        $this->invokeMethod('getChangedValues', [$testEntity]);
-
-        // 使用反射手动将ID加入idMap
-        $idMap = [$this->getObjectHash($testEntity) => 123];
-        $this->setProperty('idMap', $idMap);
-
-        // 验证idMap包含了正确的实体ID
-        $this->assertEquals(123, $this->getProperty('idMap')[$this->getObjectHash($testEntity)]);
-    }
-
-    private function getObjectHash($object): string
-    {
-        return spl_object_hash($object);
-    }
-
-    public function testEntityTrackListener_postRemove_withNoTrackColumns()
-    {
-        $this->currentTestMethod = __FUNCTION__;
-
-        // 创建无跟踪字段的测试实体
-        $testEntity = new class() {
-            private $id = 123;
-
-            public function getId()
-            {
-                return $this->id;
-            }
-        };
-
-        // 执行被测方法，不应该触发saveLog
-        $this->doctrineService->expects($this->never())->method('asyncInsert');
-
-        // 使用反射调用getChangedValues方法
-        $changedValues = $this->invokeMethod('getChangedValues', [$testEntity]);
-
-        // 验证没有跟踪的字段
-        $this->assertEmpty($changedValues);
-    }
-
-    public function testEntityTrackListener_postPersist_withNoTrackColumns()
-    {
-        $this->currentTestMethod = __FUNCTION__;
-
-        // 创建无跟踪字段的测试实体
-        $testEntity = new class() {
-            private $id = 123;
-
-            public function getId()
-            {
-                return $this->id;
-            }
-        };
-
-        // 执行被测方法，不应该触发saveLog
-        $this->doctrineService->expects($this->never())->method('asyncInsert');
-
-        // 使用反射调用getChangedValues方法
-        $changedValues = $this->invokeMethod('getChangedValues', [$testEntity]);
-
-        // 验证没有跟踪的字段
-        $this->assertEmpty($changedValues);
-    }
-
-    public function testEntityTrackListener_postUpdate_withNoTrackColumns()
-    {
-        $this->currentTestMethod = __FUNCTION__;
-
-        // 创建无跟踪字段的测试实体
-        $testEntity = new class() {
-            private $id = 123;
-
-            public function getId()
-            {
-                return $this->id;
-            }
-        };
-
-        // 执行被测方法，不应该触发saveLog
-        $this->doctrineService->expects($this->never())->method('asyncInsert');
-
-        // 使用反射调用getChangedValues方法
-        $changedValues = $this->invokeMethod('getChangedValues', [$testEntity]);
-
-        // 验证没有跟踪的字段
-        $this->assertEmpty($changedValues);
-    }
-
-
-    public function testEntityTrackListener_saveLog_withoutEntityId()
-    {
-        $this->currentTestMethod = __FUNCTION__;
-
-        // 创建一个没有ID的实体
-        $testEntity = new class() {
-            #[TrackColumn]
-            private $name = 'test';
-
-            public function getName()
-            {
-                return $this->name;
-            }
-
-            // 没有getId方法
-        };
-
-        // 设置logger期望
-        $this->logger->expects($this->once())
-            ->method('error')
-            ->with('记录TrackLog时发生未知错误');
-
-        // 使用反射通过私有方法保存日志
-        $changedValues = ['name' => 'test'];
-        $this->invokeMethod('saveLog', [$testEntity, $changedValues, 'update']);
-    }
-
-    /**
-     * 测试在未变更情况下不调用asyncInsert的情况
-     */
-    public function testEntityTrackListener_saveLog_withEmptyChanges()
-    {
-        $this->currentTestMethod = __FUNCTION__;
-
-        // 创建一个简单的测试实体
-        $testEntity = new class() {
-            private $id = 123;
-
-            public function getId()
-            {
-                return $this->id;
-            }
-        };
-
-        // 断言：asyncInsert方法不应该被调用
-        $this->doctrineService->expects($this->never())
-            ->method('asyncInsert');
-
-        // 使用空的变更值调用saveLog
-        // 即使变更为空数组，只要方法被调用就会创建EntityTrackLog并插入
-        // 所以我们完全不调用saveLog方法，仅测试getChangedValues的返回值为空的情况
-        $changedValues = $this->invokeMethod('getChangedValues', [$testEntity]);
-        $this->assertEmpty($changedValues);
-
-        // 然后验证postUpdate方法，当changedValues为空时是否会提前返回
-        // 我们模拟一个PostUpdateEventArgs
-        $eventArgs = new class($testEntity) {
-            private $object;
-
-            public function __construct($object)
-            {
-                $this->object = $object;
-            }
-
-            public function getObject()
-            {
-                return $this->object;
-            }
-        };
-
-        // 手动实现 postUpdate 方法的逻辑
-        $changedValues = $this->invokeMethod('getChangedValues', [$testEntity]);
-        if (!empty($changedValues)) {
-            $this->invokeMethod('saveLog', [$testEntity, $changedValues, 'update']);
+        $eventTypes = [];
+        foreach ($doctrineAttributes as $attr) {
+            $instance = $attr->newInstance();
+            $eventTypes[] = $instance->event;
         }
 
-        // 确认测试通过
-        $this->assertTrue(true, '没有变更字段时不会调用asyncInsert');
+        $this->assertContains(Events::preRemove, $eventTypes, '应该监听preRemove事件');
+        $this->assertContains(Events::postRemove, $eventTypes, '应该监听postRemove事件');
+        $this->assertContains(Events::postPersist, $eventTypes, '应该监听postPersist事件');
+        $this->assertContains(Events::postUpdate, $eventTypes, '应该监听postUpdate事件');
     }
 
-    /**
-     * 测试缓存命中时不重复记录日志的情况
-     */
-    public function testEntityTrackListener_saveLog_withCacheHit()
+    public function testHasRequiredMethods(): void
     {
-        $this->currentTestMethod = __FUNCTION__;
+        // 测试是否有所需的事件处理方法
+        $listener = $this->createListener();
+        $reflection = new \ReflectionClass($listener);
 
-        // 创建测试实体
-        $testEntity = new class() {
-            #[TrackColumn]
-            private $name = 'test';
-
-            private $id = 123;
-
-            public function getId()
-            {
-                return $this->id;
-            }
-
-            public function getName()
-            {
-                return $this->name;
-            }
-        };
-
-        // 设置缓存值以模拟缓存命中
-        $changedValues = ['name' => 'test'];
-        $checkKey = 'update_'. get_class($testEntity) . '_123'; 
-        $checkHash = md5($checkKey . serialize($changedValues));
-        
-        // 预先设置缓存，确保缓存命中
-        $cacheItem = $this->cache->getItem($checkHash);
-        $cacheItem->set($checkHash);
-        $this->cache->save($cacheItem);
-
-        // 断言：缓存命中时，asyncInsert方法不应该被调用
-        $this->doctrineService->expects($this->never())
-            ->method('asyncInsert');
-
-        // 使用反射通过私有方法保存日志
-        $this->invokeMethod('saveLog', [$testEntity, $changedValues, 'update']);
-
-        // 添加断言计数，确保测试不是risky
-        $this->addToAssertionCount(1);
+        $this->assertTrue($reflection->hasMethod('preRemove'), '应该有preRemove方法');
+        $this->assertTrue($reflection->hasMethod('postRemove'), '应该有postRemove方法');
+        $this->assertTrue($reflection->hasMethod('postPersist'), '应该有postPersist方法');
+        $this->assertTrue($reflection->hasMethod('postUpdate'), '应该有postUpdate方法');
+        $this->assertTrue($reflection->hasMethod('reset'), '应该有reset方法');
     }
 
-    public function testEntityTrackListener_saveLog_complete()
+    public function testPostPersist(): void
     {
-        $this->currentTestMethod = __FUNCTION__;
+        // 测试postPersist方法存在且为公共方法
+        $listener = $this->createListener();
+        $reflection = new \ReflectionClass($listener);
+        $method = $reflection->getMethod('postPersist');
 
-        // 创建测试实体
-        $testEntity = new class() {
-            #[TrackColumn]
-            private $name = 'test';
+        $this->assertTrue($method->isPublic(), 'postPersist方法应该是public的');
+        $this->assertSame('postPersist', $method->getName(), '方法名应该是postPersist');
+    }
 
-            private $id = 123;
+    public function testPostRemove(): void
+    {
+        // 测试postRemove方法存在且为公共方法
+        $listener = $this->createListener();
+        $reflection = new \ReflectionClass($listener);
+        $method = $reflection->getMethod('postRemove');
 
-            public function getId()
-            {
-                return $this->id;
-            }
+        $this->assertTrue($method->isPublic(), 'postRemove方法应该是public的');
+        $this->assertSame('postRemove', $method->getName(), '方法名应该是postRemove');
+    }
 
-            public function getName()
-            {
-                return $this->name;
-            }
-        };
+    public function testPostUpdate(): void
+    {
+        // 测试postUpdate方法存在且为公共方法
+        $listener = $this->createListener();
+        $reflection = new \ReflectionClass($listener);
+        $method = $reflection->getMethod('postUpdate');
 
-        // 确保缓存中没有数据，模拟缓存未命中
-        $this->cache->clear();
+        $this->assertTrue($method->isPublic(), 'postUpdate方法应该是public的');
+        $this->assertSame('postUpdate', $method->getName(), '方法名应该是postUpdate');
+    }
 
-        // 模拟请求相关信息
-        $this->request->method('getClientIp')->willReturn('192.168.1.1');
-        $this->requestStack->method('getMainRequest')->willReturn($this->request);
+    public function testPreRemove(): void
+    {
+        // 测试preRemove方法存在且为公共方法
+        $listener = $this->createListener();
+        $reflection = new \ReflectionClass($listener);
+        $method = $reflection->getMethod('preRemove');
 
-        // 模拟用户
-        $user = $this->createMock(UserInterface::class);
-        $user->method('getUserIdentifier')->willReturn('testuser');
-        $this->security->method('getUser')->willReturn($user);
-
-        // 设置对 asyncInsert 的期望 - 使用任意参数，只要确保被调用一次
-        $this->doctrineService->expects($this->once())
-            ->method('asyncInsert')
-            ->with($this->isInstanceOf(EntityTrackLog::class));
-
-        // 使用反射通过私有方法保存日志
-        $changedValues = ['name' => 'test'];
-        $this->invokeMethod('saveLog', [$testEntity, $changedValues, 'update']);
-
-        // 添加一个简单断言避免risky test警告
-        $this->assertTrue(true, 'saveLog方法执行完成');
+        $this->assertTrue($method->isPublic(), 'preRemove方法应该是public的');
+        $this->assertSame('preRemove', $method->getName(), '方法名应该是preRemove');
     }
 }

@@ -1,14 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tourze\DoctrineTrackBundle\EventSubscriber;
 
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\Common\Util\ClassUtils;
+use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\PostPersistEventArgs;
 use Doctrine\ORM\Event\PostRemoveEventArgs;
 use Doctrine\ORM\Event\PostUpdateEventArgs;
 use Doctrine\ORM\Event\PreRemoveEventArgs;
 use Doctrine\ORM\Events;
+use Doctrine\Persistence\ObjectManager;
 use Psr\Log\LoggerInterface;
 use RequestIdBundle\Service\RequestIdStorage;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -16,11 +20,11 @@ use Symfony\Component\Cache\Adapter\AdapterInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\PropertyAccess\Exception\UninitializedPropertyException;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Symfony\Contracts\Service\ResetInterface;
 use Tourze\DoctrineAsyncInsertBundle\Service\AsyncInsertService as DoctrineService;
 use Tourze\DoctrineHelper\CacheHelper;
-use Tourze\DoctrineHelper\ReflectionHelper;
 use Tourze\DoctrineTrackBundle\Attribute\TrackColumn;
 use Tourze\DoctrineTrackBundle\Entity\EntityTrackLog;
 
@@ -35,7 +39,7 @@ use Tourze\DoctrineTrackBundle\Entity\EntityTrackLog;
 class EntityTrackListener implements ResetInterface
 {
     /**
-     * @var array 暂存 entity => id 的关系，后面可能使用到
+     * @var array<string, mixed> 暂存 entity => id 的关系，后面可能使用到
      */
     private array $idMap = [];
 
@@ -47,6 +51,7 @@ class EntityTrackListener implements ResetInterface
         private readonly Security $security,
         #[Autowire(service: 'cache.app')] private readonly AdapterInterface $cache,
         private readonly RequestIdStorage $requestIdStorage,
+        private readonly EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -60,7 +65,7 @@ class EntityTrackListener implements ResetInterface
      */
     public function preRemove(PreRemoveEventArgs $eventArgs): void
     {
-        $this->idMap[spl_object_hash($eventArgs->getObject())] = $this->propertyAccessor->getValue($eventArgs->getObject(), 'id');
+        $this->idMap[spl_object_hash($eventArgs->getObject())] = $eventArgs->getObjectManager()->getUnitOfWork()->getSingleIdentifierValue($eventArgs->getObject());
     }
 
     /**
@@ -69,10 +74,10 @@ class EntityTrackListener implements ResetInterface
     public function postRemove(PostRemoveEventArgs $eventArgs): void
     {
         $changedValues = $this->getChangedValues($eventArgs->getObject());
-        if (empty($changedValues)) {
+        if ([] === $changedValues) {
             return;
         }
-        $this->saveLog($eventArgs->getObject(), $changedValues, 'remove');
+        $this->saveLog($eventArgs->getObjectManager(), $eventArgs->getObject(), $changedValues, 'remove');
     }
 
     /**
@@ -81,10 +86,10 @@ class EntityTrackListener implements ResetInterface
     public function postPersist(PostPersistEventArgs $eventArgs): void
     {
         $changedValues = $this->getChangedValues($eventArgs->getObject());
-        if (empty($changedValues)) {
+        if ([] === $changedValues) {
             return;
         }
-        $this->saveLog($eventArgs->getObject(), $changedValues, 'create');
+        $this->saveLog($eventArgs->getObjectManager(), $eventArgs->getObject(), $changedValues, 'create');
     }
 
     /**
@@ -93,19 +98,22 @@ class EntityTrackListener implements ResetInterface
     public function postUpdate(PostUpdateEventArgs $eventArgs): void
     {
         $changedValues = $this->getChangedValues($eventArgs->getObject());
-        if (empty($changedValues)) {
+        if ([] === $changedValues) {
             return;
         }
-        $this->saveLog($eventArgs->getObject(), $changedValues, 'update');
+        $this->saveLog($eventArgs->getObjectManager(), $eventArgs->getObject(), $changedValues, 'update');
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function getChangedValues(object $entity): array
     {
         $changedValues = [];
 
-        foreach (ReflectionHelper::getClassReflection($entity)->getProperties(\ReflectionProperty::IS_PRIVATE) as $property) {
+        foreach ($this->entityManager->getClassMetadata($entity::class)->getReflectionClass()->getProperties(\ReflectionProperty::IS_PRIVATE) as $property) {
             $trackColumn = $property->getAttributes(TrackColumn::class);
-            if (empty($trackColumn)) {
+            if ([] === $trackColumn) {
                 continue;
             }
             $trackColumn = $trackColumn[0]->newInstance();
@@ -126,16 +134,28 @@ class EntityTrackListener implements ResetInterface
         return $changedValues;
     }
 
+    private function extractEntityId(EntityManagerInterface $objectManager, object $entity): int|string|null
+    {
+        try {
+            return $objectManager->getUnitOfWork()->getSingleIdentifierValue($entity);
+        } catch (UninitializedPropertyException $exception) {
+            return null;
+        }
+    }
+
     /**
      * 保存日志
      */
-    private function saveLog(object $entity, array $changedValues, string $action): void
+    /**
+     * @param array<string, mixed> $changedValues
+     */
+    private function saveLog(EntityManagerInterface $objectManager, object $entity, array $changedValues, string $action): void
     {
-        $id = $this->propertyAccessor->getValue($entity, 'id');
-        if ($id === null || $id === '') {
+        $id = $this->extractEntityId($objectManager, $entity);
+        if (null === $id || '' === $id) {
             $id = $this->idMap[spl_object_hash($entity)] ?? null;
         }
-        if ($id === null || $id === '') {
+        if (null === $id || '' === $id) {
             $this->logger->error('记录TrackLog时发生未知错误', [
                 'entity' => $entity,
                 'values' => $changedValues,
@@ -161,15 +181,15 @@ class EntityTrackListener implements ResetInterface
 
         $log = new EntityTrackLog();
         $log->setObjectClass($objectClass);
-        $log->setObjectId($id);
+        $log->setObjectId((string) $id);
         $log->setAction($action);
         $log->setData($changedValues);
         $log->setCreateTime(new \DateTimeImmutable());
         $log->setCreatedBy($this->security->getUser()?->getUserIdentifier());
         $mainRequest = $this->requestStack->getMainRequest();
-        $log->setCreatedFromIp($mainRequest !== null ? $mainRequest->getClientIp() : '');
+        $log->setCreatedFromIp(null !== $mainRequest ? $mainRequest->getClientIp() : '');
         $requestId = $this->requestIdStorage->getRequestId();
-        $log->setRequestId($requestId !== null ? substr($requestId, 0, 64) : '');
+        $log->setRequestId(null !== $requestId ? substr($requestId, 0, 64) : '');
         $this->doctrineService->asyncInsert($log);
 
         // 一天内不会重复处理

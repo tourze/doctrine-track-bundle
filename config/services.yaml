@@ -1,0 +1,11 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Tourze\DoctrineTrackBundle\:
+    resource: '../src/'
+
+  doctrine-track.property-accessor:
+    class: Symfony\Component\PropertyAccess\PropertyAccessor
+    factory: ['Symfony\Component\PropertyAccess\PropertyAccess', 'createPropertyAccessor']

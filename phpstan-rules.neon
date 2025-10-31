@@ -1,0 +1,5 @@
+services:
+    -
+        class: Tourze\DoctrineTrackBundle\PHPStan\Rules\TrackColumnMutuallyExclusiveAttributesRule
+        tags:
+            - phpstan.rules.rule

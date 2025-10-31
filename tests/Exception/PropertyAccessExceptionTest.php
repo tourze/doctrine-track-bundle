@@ -1,16 +1,22 @@
 <?php
 
-namespace Tourze\DoctrineTrackBundle\Tests\Unit\Exception;
+declare(strict_types=1);
 
-use PHPUnit\Framework\TestCase;
+namespace Tourze\DoctrineTrackBundle\Tests\Exception;
+
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tourze\DoctrineTrackBundle\Exception\PropertyAccessException;
+use Tourze\PHPUnitBase\AbstractExceptionTestCase;
 
-class PropertyAccessExceptionTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(PropertyAccessException::class)]
+final class PropertyAccessExceptionTest extends AbstractExceptionTestCase
 {
-    public function testExceptionInheritance(): void
+    public function testExceptionMessage(): void
     {
         $exception = new PropertyAccessException('Test message');
-        $this->assertInstanceOf(\RuntimeException::class, $exception);
         $this->assertEquals('Test message', $exception->getMessage());
     }
 
@@ -18,7 +24,7 @@ class PropertyAccessExceptionTest extends TestCase
     {
         $previous = new \Exception('Previous exception');
         $exception = new PropertyAccessException('Test message', 123, $previous);
-        
+
         $this->assertEquals('Test message', $exception->getMessage());
         $this->assertEquals(123, $exception->getCode());
         $this->assertSame($previous, $exception->getPrevious());

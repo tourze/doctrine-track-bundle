@@ -1,16 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tourze\DoctrineTrackBundle\Tests;
 
-use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Tourze\DoctrineTrackBundle\DoctrineTrackBundle;
+use Tourze\PHPUnitSymfonyKernelTest\AbstractBundleTestCase;
 
-class DoctrineTrackBundleTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(DoctrineTrackBundle::class)]
+#[RunTestsInSeparateProcesses]
+final class DoctrineTrackBundleTest extends AbstractBundleTestCase
 {
-    public function testDoctrineTrackBundle_canBeInstantiated()
-    {
-        // 测试Bundle类可以被实例化
-        $bundle = new DoctrineTrackBundle();
-        $this->assertInstanceOf(DoctrineTrackBundle::class, $bundle);
-    }
 }

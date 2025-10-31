@@ -4,9 +4,21 @@ services:
     autowire: true      # Automatically injects dependencies in your services.
     autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
 
-  Tourze\DoctrineTrackBundle\EventSubscriber\:
-    resource: '../../EventSubscriber/'
+  # 自动配置
+  _instanceof:
+    Tourze\DoctrineTrackBundle\EventSubscriber\EntityTrackListener:
+      tags:
+        - { name: doctrine.event_listener, event: preRemove }
+        - { name: doctrine.event_listener, event: postRemove }
+        - { name: doctrine.event_listener, event: postPersist }
+        - { name: doctrine.event_listener, event: postUpdate }
 
+  # PropertyAccessor服务
   doctrine-track.property-accessor:
     class: Symfony\Component\PropertyAccess\PropertyAccessor
-    factory: [ 'Symfony\Component\PropertyAccess\PropertyAccess', 'createPropertyAccessor' ]
+    factory: ['Symfony\Component\PropertyAccess\PropertyAccess', 'createPropertyAccessor']
+
+  # 服务配置
+  Tourze\DoctrineTrackBundle\EventSubscriber\EntityTrackListener:
+    autowire: true
+    autoconfigure: true
