@@ -29,7 +29,7 @@
     "tourze/doctrine-timestamp-bundle": "1.0.*",
     "tourze/doctrine-user-bundle": "1.0.*",
     "tourze/request-id-bundle": "1.0.*",
-    "tourze/symfony-dependency-service-loader": "1.*",
+    "tourze/symfony-dependency-service-loader": "1.0.*",
     "tourze/symfony-schedule-entity-clean-bundle": "1.0.*"
   },
   "require-dev": {
