@@ -23,7 +23,7 @@
     "symfony/yaml": "^7.3",
     "tourze/bundle-dependency": "1.*",
     "tourze/doctrine-async-insert-bundle": "1.0.*",
-    "tourze/doctrine-helper": "0.0.*",
+    "tourze/doctrine-helper": "1.0.*",
     "tourze/doctrine-indexed-bundle": "1.0.*",
     "tourze/doctrine-ip-bundle": "1.0.*",
     "tourze/doctrine-timestamp-bundle": "1.0.*",
